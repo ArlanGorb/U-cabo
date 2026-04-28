@@ -368,7 +368,7 @@ const Profile = () => {
                         </div>
                         <div>
                           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Kirim Email</p>
-                          <p className="text-lg font-black text-slate-800">admin@ucabo.com</p>
+                          <p className="text-lg font-black text-slate-800">arlangorby81@gmail.com</p>
                         </div>
                       </a>
                       <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="flex flex-col gap-4 p-6 rounded-3xl border-2 border-slate-50 hover:border-primary/20 hover:bg-slate-50 transition-all">
@@ -377,7 +377,7 @@ const Profile = () => {
                         </div>
                         <div>
                           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">WhatsApp CS</p>
-                          <p className="text-lg font-black text-slate-800">+62 812-3456</p>
+                          <p className="text-lg font-black text-slate-800">+62 82116059425</p>
                         </div>
                       </a>
                     </div>

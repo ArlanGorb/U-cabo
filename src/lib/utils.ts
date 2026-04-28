@@ -27,6 +27,7 @@ export interface Message {
   text: string;
   fromMe: boolean;
   time: string;
+  senderName?: string;
 }
 
 export const formatPrice = (price: number) =>

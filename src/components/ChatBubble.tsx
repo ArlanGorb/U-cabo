@@ -2,7 +2,12 @@ import { cn, type Message } from '@/lib/utils';
 
 export function ChatBubble({ message }: { message: Message }) {
   return (
-    <div className={cn('flex', message.fromMe ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex flex-col', message.fromMe ? 'items-end' : 'items-start', 'mb-4')}>
+      {message.senderName && (
+        <span className={cn('text-xs mb-1 font-semibold', message.fromMe ? 'text-primary/80 mr-1' : 'text-slate-500 ml-1')}>
+          {message.senderName}
+        </span>
+      )}
       <div
         className={cn(
           'max-w-[75%] rounded-2xl px-4 py-2.5 text-sm',

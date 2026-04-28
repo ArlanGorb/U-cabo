@@ -16,6 +16,7 @@ const ChatDetail = () => {
   const { toast } = useToast();
   
    const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [receiver, setReceiver] = useState<any>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
@@ -45,8 +46,11 @@ const ChatDetail = () => {
       setCurrentUser(user);
 
       // Fetch user role
-      const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (profileData) setUserRole(profileData.role);
+      const { data: profileData } = await supabase.from('profiles').select('role, full_name, name').eq('id', user.id).single();
+      if (profileData) {
+         setUserRole(profileData.role);
+         setCurrentUserName(profileData.full_name || profileData.name || 'Anda');
+      }
 
       // Ambil Info Lawan Bicara (Receiver) dari tabel profiles
       if (receiverId) {
@@ -65,7 +69,8 @@ const ChatDetail = () => {
              id: m.id,
              text: m.text,
              fromMe: m.sender_id === user.id,
-             time: new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+             time: new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+             senderName: m.sender_id === user.id ? (profileData?.full_name || profileData?.name || 'Anda') : (profile?.full_name || profile?.name)
           }));
           setMsgs(formatted);
         }
@@ -91,7 +96,8 @@ const ChatDetail = () => {
                     id: newMessage.id,
                     text: newMessage.text,
                     fromMe: newMessage.sender_id === user.id,
-                    time: new Date(newMessage.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                    time: new Date(newMessage.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                    senderName: newMessage.sender_id === user.id ? (profileData?.full_name || profileData?.name || 'Anda') : (profile?.full_name || profile?.name)
                   }];
                });
             }
@@ -139,7 +145,8 @@ const ChatDetail = () => {
           id: newMessage.id,
           text: newMessage.text,
           fromMe: true,
-          time: new Date(newMessage.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          time: new Date(newMessage.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          senderName: currentUserName || 'Anda'
         }];
       });
     }
