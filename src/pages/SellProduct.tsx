@@ -97,7 +97,13 @@ const SellProduct = () => {
     e.preventDefault();
     setLoading(true);
 
-    let imageUrl = existingImageUrl || 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80';
+    if (!imageFile && !existingImageUrl) {
+      toast({ title: 'Gagal', description: 'Mohon unggah foto produk terlebih dahulu.', variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
+
+    let imageUrl = existingImageUrl || '';
 
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();

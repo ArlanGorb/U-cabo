@@ -69,6 +69,7 @@ const SellerDashboard = () => {
       .from('products')
       .select('*')
       .eq('seller_id', user.id)
+      .neq('status', 'deleted')
       .order('created_at', { ascending: false });
 
     if (products) setMyProducts(products);
@@ -144,17 +145,17 @@ const SellerDashboard = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Yakin ingin menghapus produk ini? Produk yang sudah pernah dipesan mungkin tidak bisa dihapus.")) return;
+    if (!window.confirm("Yakin ingin menghapus produk ini? Produk akan diarsipkan dan tidak muncul lagi di toko.")) return;
 
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase.from('products').update({ status: 'deleted' }).eq('id', id);
     if (!error) {
-      toast({ title: 'Berhasil', description: 'Produk telah dihapus dari database.' });
+      toast({ title: 'Berhasil', description: 'Produk telah dihapus/diarsipkan.' });
       setMyProducts((prev) => prev.filter((p) => p.id !== id));
     } else {
       console.error("Delete Error:", error);
       toast({ 
         title: 'Gagal Menghapus', 
-        description: `Error: ${error.message}. (Biasanya karena barang sudah pernah dipesan atau masalah izin RLS)`, 
+        description: `Terjadi kesalahan: ${error.message}.`, 
         variant: 'destructive' 
       });
     }

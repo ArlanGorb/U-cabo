@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, Users, Package, FileCheck, Save, Trash2, CreditCard, Banknote, History } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Package, FileCheck, Save, Trash2, CreditCard, Banknote, History, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -110,8 +110,8 @@ const ReportsView = ({ reports, updateStatus }: { reports: FraudReport[], update
               <div key={r.id} className="p-5 flex flex-col md:flex-row justify-between gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant={r.status === 'pending' ? 'destructive' : r.status === 'investigated' ? 'secondary' : 'default'}>
-                      {r.status.toUpperCase()}
+                    <Badge variant={(r.status || 'pending') === 'pending' ? 'destructive' : (r.status || 'pending') === 'investigated' ? 'secondary' : 'default'}>
+                      {(r.status || 'pending').toUpperCase()}
                     </Badge>
                     <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
                   </div>
@@ -369,6 +369,7 @@ const TransactionsView = ({ withdrawals, orders, handleApproveWithdrawal, handle
         <Tabs defaultValue="withdrawals" className="w-full">
           <TabsList className="mb-4">
              <TabsTrigger value="withdrawals">Penarikan Dana</TabsTrigger>
+             <TabsTrigger value="disputed">Komplain & Sengketa</TabsTrigger>
              <TabsTrigger value="orders">Semua Transaksi</TabsTrigger>
           </TabsList>
           
@@ -393,6 +394,26 @@ const TransactionsView = ({ withdrawals, orders, handleApproveWithdrawal, handle
                   </div>
                 </div>
              ))}
+          </TabsContent>
+          
+          <TabsContent value="disputed" className="space-y-3">
+             {orders.filter(o => o.status === 'disputed').length === 0 ? (
+                <p className="text-sm text-muted-foreground">Tidak ada pesanan yang sedang dalam sengketa/komplain.</p>
+             ) : (
+                orders.filter(o => o.status === 'disputed').map((o) => (
+                   <div key={o.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-orange-200 bg-orange-50/30 gap-4">
+                      <div>
+                         <p className="font-bold text-slate-800">{o.product_name}</p>
+                         <p className="text-xs text-slate-500 mt-1">Penjual: <span className="font-semibold text-slate-700">{o.seller_name}</span> | Harga: <span className="font-bold text-primary">Rp {Number(o.price).toLocaleString('id-ID')}</span></p>
+                         <p className="text-[10px] text-orange-600 font-bold mt-2 flex items-center gap-1 uppercase tracking-widest"><ShieldAlert className="h-3 w-3" /> Status: Menunggu Keputusan Admin</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                         <Button size="sm" variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700 hover:bg-green-100" onClick={() => handleResolveDispute(o.id, 'refunded')}>Kembalikan Dana (Refund)</Button>
+                         <Button size="sm" variant="outline" className="text-xs border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={() => handleResolveDispute(o.id, 'completed')}>Tolak & Selesaikan</Button>
+                      </div>
+                   </div>
+                ))
+             )}
           </TabsContent>
           
           <TabsContent value="orders" className="space-y-3">
@@ -649,7 +670,7 @@ const AdminPanel = () => {
 
   const fetchTransactionsData = async () => {
     // 1. Fetch Orders (Transaksi belanja seluruh kampus)
-    const { data: ords } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+    const { data: ords } = await supabase.from('orders').select('*').order('date', { ascending: false });
     if (ords) setOrders(ords);
 
     // 2. Fetch Penarikan Dana Penjual

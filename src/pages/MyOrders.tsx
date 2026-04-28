@@ -212,7 +212,8 @@ const MyOrders = () => {
         reporter_id: user.id,
         reported_seller_id: selectedOrder.seller_id,
         reason: reportReason,
-        details: reportDetails
+        details: reportDetails,
+        status: 'pending'
       });
 
       if (error) throw error;

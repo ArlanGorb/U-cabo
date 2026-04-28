@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ShieldCheck, MessageCircle, ShoppingCart, Handshake, Star } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, MessageCircle, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -103,12 +103,7 @@ const ProductDetail = () => {
     loadData();
   }, [id]);
 
-  const handleCOD = () => {
-    if (!product) return;
-    if (confirm("Metode: Ketemuan di Kampus.\n\nAnda akan diarahkan ke chat penjual untuk janjian di sekitar UNKLAB. Barang ini akan ditandai sbg 'Dipesan' saat COD deal. Lanjut?")) {
-      navigate(`/chat/${product.seller_id || 'c1'}`);
-    }
-  };
+
 
   const handleBuyNow = async () => {
     if (!product) return;
@@ -349,14 +344,7 @@ const ProductDetail = () => {
                          Chat Penjual
                        </Link>
                      </Button>
-                     <Button 
-                        onClick={handleCOD}
-                        disabled={product.status === 'sold'}
-                        className="flex-1 h-12 gap-2 bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-bold transition-colors shadow-sm"
-                     >
-                       <Handshake className="h-5 w-5" />
-                       COD Kampus
-                     </Button>
+
                      <Button 
                        onClick={handleBuyNow}
                        disabled={isPaying || product.status === 'sold'}
@@ -388,14 +376,7 @@ const ProductDetail = () => {
                         Chat
                       </Link>
                     </Button>
-                    <Button 
-                       onClick={handleCOD}
-                       disabled={product.status === 'sold'}
-                       className="flex-1 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 h-11 font-semibold"
-                    >
-                      <Handshake className="h-4 w-4" />
-                      COD Kampus
-                    </Button>
+
                   </div>
                   <Button 
                     onClick={handleBuyNow}
