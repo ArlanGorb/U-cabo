@@ -813,7 +813,7 @@ const AdminPanel = () => {
 
   const fetchProductsCount = async () => {
     // Cari jumlah total produk yg belum terjual (status tidak sama dengan 'sold')
-    const { count, error } = await supabase.from('products').select('*', { count: 'exact', head: true }).neq('status', 'sold');
+    const { count, error } = await supabase.from('products').select('*', { count: 'exact', head: true }).neq('status', 'sold').neq('status', 'deleted');
     if (!error && count !== null) {
       setActiveProducts(count);
     }

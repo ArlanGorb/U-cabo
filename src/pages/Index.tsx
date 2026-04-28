@@ -47,7 +47,8 @@ const Index = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .neq('status', 'sold') // Menyembunyikan produk yang sudah terjual
+        .neq('status', 'sold')
+        .neq('status', 'deleted') // Menyembunyikan produk yang diarsipkan/dihapus
         .order('created_at', { ascending: false });
 
       if (error) {
