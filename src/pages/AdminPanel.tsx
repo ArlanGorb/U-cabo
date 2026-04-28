@@ -113,7 +113,7 @@ const ReportsView = ({ reports, updateStatus }: { reports: FraudReport[], update
                     <Badge variant={(r.status || 'pending') === 'pending' ? 'destructive' : (r.status || 'pending') === 'investigated' ? 'secondary' : 'default'}>
                       {(r.status || 'pending').toUpperCase()}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+                    <span className="text-xs text-muted-foreground">{r.created_at ? new Date(r.created_at).toLocaleDateString() : 'Baru saja'}</span>
                   </div>
                   <h3 className="font-bold text-lg text-red-600">{r.reason}</h3>
                   <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md border border-dashed italic">"{r.details}"</p>
@@ -378,7 +378,7 @@ const TransactionsView = ({ withdrawals, orders, handleApproveWithdrawal, handle
              {withdrawals.map((w) => (
                 <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-3 bg-white">
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{w.seller_name} <span className="text-xs font-normal text-muted-foreground">({new Date(w.created_at).toLocaleDateString('id-ID')})</span></p>
+                    <p className="text-sm font-bold text-slate-800">{w.seller_name} <span className="text-xs font-normal text-muted-foreground">({w.created_at ? new Date(w.created_at).toLocaleDateString('id-ID') : 'N/A'})</span></p>
                     <p className="text-xs text-slate-500 mt-1">Bank: <span className="font-semibold text-slate-700">{w.bank_name}</span> - Rek: <span className="font-semibold text-slate-700">{w.account_number}</span></p>
                     <p className="text-lg font-bold text-primary mt-1">Rp {Number(w.amount).toLocaleString('id-ID')}</p>
                   </div>
@@ -422,7 +422,7 @@ const TransactionsView = ({ withdrawals, orders, handleApproveWithdrawal, handle
                <div key={o.id} className="flex items-center justify-between p-3 rounded-lg border bg-slate-50/50">
                  <div>
                     <p className="text-sm font-bold">{o.product_name}</p>
-                    <p className="text-xs text-muted-foreground">Penjual: {o.seller_name} | {new Date(o.created_at).toLocaleDateString('id-ID')}</p>
+                    <p className="text-xs text-muted-foreground">Penjual: {o.seller_name} | {o.created_at ? new Date(o.created_at).toLocaleDateString('id-ID') : o.date || 'N/A'}</p>
                  </div>
                  <div className="text-right flex flex-col items-end">
                     <p className="text-sm font-bold text-slate-800">Rp {Number(o.price).toLocaleString('id-ID')}</p>
