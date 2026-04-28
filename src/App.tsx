@@ -16,7 +16,10 @@ import KYCVerification from "./pages/KYCVerification.tsx";
 import AdminPanel from "./pages/AdminPanel.tsx";
 import Profile from "./pages/Profile.tsx";
 import MyOrders from "./pages/MyOrders.tsx";
+import About from "./pages/About.tsx";
 import NotFound from "./pages/NotFound.tsx";
+
+
 
 const queryClient = new QueryClient();
 
@@ -30,6 +33,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/about" element={<About />} />
           
           {/* Rute yang butuh Login saja (Auth UMUM) */}
           <Route path="/chat" element={<ProtectedRoute><ChatList /></ProtectedRoute>} />

@@ -32,20 +32,20 @@ export function AdminSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="flex items-center gap-2 px-4 py-4">
-          <img src={logo} alt="U-Cabo" className="h-8 w-8 object-contain" />
-          {!collapsed && <span className="text-sm font-bold">Admin Panel</span>}
+        <div className="flex items-center gap-4 px-5 py-6 border-b mb-4">
+          <img src={logo} alt="U-Cabo" className="h-12 w-12 object-contain" />
+          {!collapsed && <span className="text-xl font-black text-primary tracking-tighter uppercase">Admin Panel</span>}
         </div>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 mb-4 px-5">Menu Utama</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2 px-3">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className="hover:bg-muted/50" activeClassName="bg-muted text-primary font-medium">
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                  <SidebarMenuButton asChild className="h-14">
+                    <NavLink to={item.url} end className="flex items-center gap-4 px-4 rounded-xl transition-all duration-200 hover:bg-slate-200" activeClassName="bg-primary text-white font-black shadow-lg shadow-primary/30 hover:bg-primary/90">
+                      <item.icon className="h-6 w-6 shrink-0" />
+                      {!collapsed && <span className="text-lg font-extrabold tracking-tight">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

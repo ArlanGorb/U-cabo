@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BottomNav } from '@/components/BottomNav';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase'; // Import Supabase
+import logo from '@/assets/u-cabo-logo.png';
 
 const SellProduct = () => {
   const navigate = useNavigate();
@@ -45,7 +46,14 @@ const SellProduct = () => {
 
         // Fetch user role
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (profile) setUserRole(profile.role);
+        if (profile) {
+          setUserRole(profile.role);
+          if (profile.role === 'Buyer') {
+            toast({ title: 'Akses Dibatasi', description: 'Pembeli tidak dapat menjual barang. Silakan ajukan KYC untuk menjadi penjual.', variant: 'destructive' });
+            navigate('/', { replace: true });
+            return;
+          }
+        }
       } else {
         navigate('/login', { replace: true });
       }
@@ -156,18 +164,21 @@ const SellProduct = () => {
       <div className="w-full bg-background min-h-screen relative">
         
         {/* Header Desktop */}
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur hidden md:block mb-8">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <h1 className="text-2xl font-black text-primary tracking-tight">U-Cabo</h1>
+        <header className="sticky top-0 z-40 glass-3d hidden md:block mb-8">
+          <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+              <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+              <div className="flex flex-col">
+                <h1 className="text-3xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+                <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/" className="text-sm font-semibold hover:text-primary transition-colors">Home</a>
-              <a href="/chat" className="text-sm font-semibold hover:text-primary transition-colors">Chat</a>
-              {userRole === 'Seller' && (
-                <a href="/sell" className="text-sm font-semibold text-primary transition-colors">Jual Barang</a>
-              )}
-              <a href="/profile" className="text-sm font-semibold hover:text-primary transition-colors">Profil Saya</a>
+            <div className="flex items-center gap-10">
+              <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+              <a href="/chat" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Chat</a>
+              <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
+              <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+              <a href="/profile" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Profil Saya</a>
             </div>
           </div>
         </header>

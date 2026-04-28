@@ -33,10 +33,11 @@ export const ProtectedRoute = ({ children, requireAuth = true, requireSeller = f
         const role = profile?.role || user.user_metadata?.role;
         const email = user.email || '';
 
-        // Jika butuh akses Admin
+        // Jika butuh akses Admin - HANYA izinkan email admin spesifik
         if (requireAdmin) {
-          if (role !== 'Admin' && !email.toLowerCase().includes('admin')) {
-            authorized = false; // Hanya izinkan role Admin atau email yg mengandung 'admin'
+          const ADMIN_EMAIL = 'arlangorby81@gmail.com';
+          if (email.toLowerCase() !== ADMIN_EMAIL) {
+            authorized = false;
           }
         } 
         // Jika butuh akses Seller

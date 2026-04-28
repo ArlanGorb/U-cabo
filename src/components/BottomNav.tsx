@@ -6,15 +6,15 @@ import { cn } from '@/lib/utils';
 
 export function BottomNav() {
   const location = useLocation();
-  const [isSeller, setIsSeller] = useState(true); // Default tampilkan, lalu sembunyikan jika ternyata Buyer biasa
+  const [isSeller, setIsSeller] = useState(false); // Default sembunyikan untuk keamanan
 
   useEffect(() => {
     const checkRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (profile?.role === 'Buyer') {
-          setIsSeller(false);
+        if (profile && profile.role !== 'Buyer') {
+          setIsSeller(true);
         }
       }
     };
@@ -31,7 +31,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
-      <div className="mx-auto max-w-lg border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pointer-events-auto sm:border-x">
+      <div className="mx-auto max-w-lg pointer-events-auto sm:border-x glass-3d border-t shadow-3d-deep rounded-t-2xl">
         <div className="flex items-center justify-around py-2">
         {navItems.map((item) => {
           const active = location.pathname === item.path;

@@ -10,6 +10,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import logo from '@/assets/u-cabo-logo.png';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -21,37 +22,85 @@ const ProductDetail = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [sellerRating, setSellerRating] = useState<number>(0);
   const [totalReviews, setTotalReviews] = useState<number>(0);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAuth = async () => {
-       const { data } = await supabase.auth.getUser();
-       if (data?.user) setCurrentUserId(data.user.id);
-    };
-    fetchAuth();
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // 1. Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+          if (profile) setUserRole(profile.role);
+        }
 
-    const fetchProduct = async () => {
-      const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
-      if (data) {
-        setProduct(data);
-        
-        // Fetch seller rating from profiles
-        if (data.seller_id) {
-          const { data: profile } = await supabase
+        // 2. Get product
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (productError) throw productError;
+        if (productData) {
+          console.log("Product loaded:", productData);
+          
+          // 3. Get seller profile
+          const { data: sellerProfile } = await supabase
             .from('profiles')
-            .select('name, seller_rating, total_reviews')
-            .eq('id', data.seller_id)
+            .select('full_name, avatar_url')
+            .eq('id', productData.seller_id)
             .single();
           
-          if (profile) {
-            setProduct(prev => ({ ...prev, sellerName: profile.name }));
-            setSellerRating(profile.seller_rating || 0);
-            setTotalReviews(profile.total_reviews || 0);
+          // 4. Get seller KYC status
+          const { data: kycData } = await supabase
+            .from('kyc_requests')
+            .select('status')
+            .eq('user_id', productData.seller_id)
+            .single();
+
+          // 5. Calculate seller rating directly from reviews table
+          const { data: reviewsData } = await supabase
+            .from('reviews')
+            .select('product_rating, service_rating')
+            .eq('seller_id', productData.seller_id);
+
+          let calculatedRating = 0;
+          let reviewCount = 0;
+
+          if (reviewsData && reviewsData.length > 0) {
+            reviewCount = reviewsData.length;
+            const totalSum = reviewsData.reduce((sum, r) => {
+              const avg = (Number(r.product_rating) + Number(r.service_rating)) / 2;
+              return sum + avg;
+            }, 0);
+            calculatedRating = totalSum / reviewCount;
           }
+
+          console.log("Seller Profile:", sellerProfile);
+          console.log("KYC Status:", kycData);
+          console.log("Reviews Data:", reviewsData, "Rating:", calculatedRating, "Count:", reviewCount);
+
+          setProduct({
+            ...productData,
+            sellerName: sellerProfile?.full_name || 'Penjual U-Cabo',
+            sellerAvatar: sellerProfile?.avatar_url || `https://ui-avatars.com/api/?name=${sellerProfile?.full_name || 'User'}&background=random`,
+            sellerVerified: kycData?.status === 'approved'
+          });
+
+          setSellerRating(calculatedRating);
+          setTotalReviews(reviewCount);
         }
+      } catch (error) {
+        console.error("Error loading product detail:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    fetchProduct();
+
+    loadData();
   }, [id]);
 
   const handleCOD = () => {
@@ -152,16 +201,23 @@ const ProductDetail = () => {
     <div className="min-h-screen pb-24 bg-background flex flex-col w-full">
       <div className="w-full bg-background min-h-screen relative md:pb-12">
         {/* Header Desktop */}
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur hidden md:block mb-8">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <h1 className="text-2xl font-black text-primary tracking-tight">U-Cabo</h1>
+        <header className="sticky top-0 z-40 glass-3d hidden md:block mb-8">
+          <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+              <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+              <div className="flex flex-col">
+                <h1 className="text-3xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+                <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/" className="text-sm font-semibold hover:text-primary transition-colors">Home</a>
-              <a href="/chat" className="text-sm font-semibold hover:text-primary transition-colors">Chat</a>
-              <a href="/sell" className="text-sm font-semibold hover:text-primary transition-colors">Jual Barang</a>
-              <a href="/profile" className="text-sm font-semibold hover:text-primary transition-colors">Profil Saya</a>
+            <div className="flex items-center gap-10">
+              <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+              <a href="/chat" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Chat</a>
+              {userRole && (userRole.toLowerCase() === 'seller' || userRole.toLowerCase() === 'admin') && (
+                <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
+              )}
+              <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+              <a href="/profile" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Profil Saya</a>
             </div>
           </div>
         </header>
@@ -256,7 +312,7 @@ const ProductDetail = () => {
                   <img src={product.sellerAvatar} alt={product.sellerName} className="h-12 w-12 rounded-full object-cover border border-black/5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-base font-bold text-foreground/90">{product.sellerName}</span>
+                      <span className="text-base font-bold text-foreground/90">{product.sellerName || 'Penjual U-Cabo'}</span>
                       {product.sellerVerified && <ShieldCheck className="h-5 w-5 text-blue-500" />}
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -267,7 +323,13 @@ const ProductDetail = () => {
                        <span className="text-[10px] text-slate-400 font-medium">({totalReviews} ulasan)</span>
                     </div>
                     <p className="text-xs font-semibold text-muted-foreground mt-1">
-                      {product.sellerVerified ? <span className="text-blue-600">Seller Terverifikasi</span> : 'Belum Terverifikasi'}
+                      {product.sellerVerified ? (
+                        <span className="text-blue-600 flex items-center gap-1">
+                          Seller Terverifikasi
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Belum Terverifikasi</span>
+                      )}
                     </p>
                   </div>
                 </Card>

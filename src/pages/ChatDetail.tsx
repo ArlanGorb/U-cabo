@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Trash2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Send, Image as ImageIcon, ShieldCheck, MoreVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ChatBubble } from '@/components/ChatBubble';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import logo from '@/assets/u-cabo-logo.png';
 
 type Message = { id: string; text: string; fromMe: boolean; time: string };
 
@@ -14,7 +15,8 @@ const ChatDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [currentUser, setCurrentUser] = useState<any>(null);
+   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [receiver, setReceiver] = useState<any>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -41,6 +43,10 @@ const ChatDetail = () => {
         return;
       }
       setCurrentUser(user);
+
+      // Fetch user role
+      const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      if (profileData) setUserRole(profileData.role);
 
       // Ambil Info Lawan Bicara (Receiver) dari tabel profiles
       if (receiverId) {
@@ -143,34 +149,68 @@ const ChatDetail = () => {
     if (!currentUser || !receiverId) return;
     
     if (window.confirm('Apakah Anda yakin ingin menghapus seluruh riwayat obrolan ini? Tindakan ini akan menghapus pesan di kedua belah pihak.')) {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${currentUser.id})`);
+      try {
+        // Hapus pesan yang kita kirim
+        const { error: err1 } = await supabase
+          .from('messages')
+          .delete()
+          .eq('sender_id', currentUser.id)
+          .eq('receiver_id', receiverId);
 
-      if (error) {
-        toast({ title: 'Gagal', description: 'Gagal menghapus obrolan.', variant: 'destructive' });
-      } else {
+        // Hapus pesan yang kita terima
+        const { error: err2 } = await supabase
+          .from('messages')
+          .delete()
+          .eq('sender_id', receiverId)
+          .eq('receiver_id', currentUser.id);
+
+        if (err1 || err2) throw new Error('Penghapusan gagal di salah satu sisi');
+
         toast({ title: 'Berhasil', description: 'Riwayat obrolan bersih.' });
-        setMsgs([]); // Kosongkan layar secara manual (meskiput event listener juga akan membersihkan satu per satu)
+        setMsgs([]); // Kosongkan layar
+        navigate('/chat'); // Kembali ke daftar chat
+      } catch (error) {
+        toast({ title: 'Gagal', description: 'Gagal menghapus obrolan.', variant: 'destructive' });
       }
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center gap-3 border-b bg-white px-4 py-3 shadow-sm">
+      {/* Header Desktop */}
+      <header className="sticky top-0 z-40 glass-3d hidden md:block">
+        <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+            <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+            <div className="flex flex-col">
+              <h1 className="text-3xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+              <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-10">
+            <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+            <a href="/chat" className="text-base font-bold text-primary transition-colors border-b-2 border-primary pb-1">Chat</a>
+            {userRole && (userRole.toLowerCase() === 'seller' || userRole.toLowerCase() === 'admin') && (
+              <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
+            )}
+            <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+            <a href="/profile" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Profil Saya</a>
+          </div>
+        </div>
+      </header>
+
+      {/* Header Mobile / Chat Title */}
+      <header className="sticky top-0 z-40 flex items-center gap-3 border-b bg-white px-4 py-3 shadow-sm md:mt-2">
         <button onClick={() => navigate(-1)} className="rounded-full p-2 hover:bg-slate-100 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         {receiver ? (
           <>
             <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-              <span className="text-sm font-bold text-primary">{receiver.name?.[0]?.toUpperCase()}</span>
+              <span className="text-sm font-bold text-primary">{(receiver.full_name || receiver.name)?.[0]?.toUpperCase()}</span>
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">{receiver.name}</p>
+              <p className="text-sm font-bold text-slate-800">{receiver.full_name || receiver.name}</p>
               <p className="text-[10px] font-medium text-slate-500">{receiver.role === 'Seller' ? 'Penjual Terverifikasi' : 'Anggota Kampus'}</p>
             </div>
             <div className="ml-auto">

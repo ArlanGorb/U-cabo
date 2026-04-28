@@ -481,51 +481,60 @@ const SettingsView = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Pengaturan Sistem</CardTitle>
-        <CardDescription>Atur komisi, batas penarikan, dan informasi platform.</CardDescription>
+    <Card className="shadow-2xl border-slate-200">
+      <CardHeader className="pb-10 border-b mb-10">
+        <CardTitle className="text-3xl font-black text-slate-900">Pengaturan Sistem</CardTitle>
+        <CardDescription className="text-xl font-medium mt-2">Atur komisi, batas penarikan, dan informasi platform.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Nama Platform</Label>
-          <Input type="text" value={appName} onChange={(e) => setAppName(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>Email Kontak / Bantuan</Label>
-          <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>Biaya Layanan / Service Fee (%)</Label>
-          <Input type="number" value={fee} onChange={(e) => setFee(Number(e.target.value))} />
-          <p className="text-xs text-muted-foreground">Persentase potongan komisi per transaksi penjualan.</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Batas Minimum Penarikan Dana (Rp)</Label>
-          <Input type="number" value={minWithdrawal} onChange={(e) => setMinWithdrawal(Number(e.target.value))} />
-        </div>
-
-        <div className="space-y-4 mt-6 pt-6 border-t">
-          <Label className="text-lg font-bold text-primary">Tampilan Banner Halaman Depan</Label>
-          
-          <div className="space-y-2">
-            <Label>Teks Label (Boks Putih Kecil)</Label>
-            <Input type="text" value={bannerBadge} onChange={(e) => setBannerBadge(e.target.value)} />
+      <CardContent className="space-y-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Nama Platform</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="text" value={appName} onChange={(e) => setAppName(e.target.value)} />
           </div>
-          
-          <div className="space-y-2">
-            <Label>Judul Utama Banner</Label>
-            <Input type="text" value={bannerTitle} onChange={(e) => setBannerTitle(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Gunakan \n untuk membuat baris baru pada judul.</p>
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Email Kontak / Bantuan</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
           </div>
-          
-          <div className="space-y-2">
-            <Label>Sub-judul / Deskripsi Banner</Label>
-            <Input type="text" value={bannerSubtitle} onChange={(e) => setBannerSubtitle(e.target.value)} />
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Biaya Layanan / Service Fee (%)</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="number" value={fee} onChange={(e) => setFee(Number(e.target.value))} />
+            <p className="text-base text-muted-foreground font-bold italic">Persentase potongan komisi per transaksi penjualan.</p>
+          </div>
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Batas Minimum Penarikan Dana (Rp)</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="number" value={minWithdrawal} onChange={(e) => setMinWithdrawal(Number(e.target.value))} />
           </div>
         </div>
 
-        <Button onClick={handleSave} className="mt-2 gap-2"><Save className="h-4 w-4"/> Simpan Pengaturan</Button>
+        <div className="space-y-10 mt-16 pt-16 border-t-4 border-slate-100">
+          <div className="flex flex-col gap-4 mb-8">
+            <Label className="text-4xl font-black text-primary uppercase tracking-tighter">Tampilan Banner Halaman Depan</Label>
+            <p className="text-lg text-slate-500 font-bold">Pengaturan teks yang muncul pada banner promo di halaman utama.</p>
+          </div>
+          
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Teks Label (Boks Putih Kecil)</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="text" value={bannerBadge} onChange={(e) => setBannerBadge(e.target.value)} />
+          </div>
+          
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Judul Utama Banner</Label>
+            <Input className="h-16 text-lg font-black shadow-md bg-white border-2 focus:border-primary" type="text" value={bannerTitle} onChange={(e) => setBannerTitle(e.target.value)} />
+            <p className="text-base text-muted-foreground font-bold italic">Gunakan \n untuk membuat baris baru pada judul.</p>
+          </div>
+          
+          <div className="space-y-4">
+            <Label className="text-xl font-black text-slate-800 uppercase tracking-tight">Sub-judul / Deskripsi Banner</Label>
+            <Input className="h-16 text-lg font-bold shadow-md bg-white border-2 focus:border-primary" type="text" value={bannerSubtitle} onChange={(e) => setBannerSubtitle(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="pt-10 pb-6">
+          <Button onClick={handleSave} className="h-20 px-16 rounded-2xl text-xl font-extrabold gap-4 shadow-2xl shadow-primary/40 transition-all hover:scale-[1.05] active:scale-100 bg-primary hover:bg-primary/90">
+            <Save className="h-8 w-8"/> Simpan Pengaturan
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -716,10 +725,16 @@ const AdminPanel = () => {
     // Update state first
     setAllProducts((prev) => prev.filter((p) => p.id !== id));
     
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    // Tambahkan .select() untuk mendeteksi apakah baris benar-benar terhapus
+    const { data, error } = await supabase.from('products').delete().eq('id', id).select();
+    
     if (error) {
       toast({ title: 'Gagal', description: error.message, variant: 'destructive' });
       fetchAllProducts(); // restore on fail
+    } else if (data && data.length === 0) {
+      // RLS silent failure: tidak ada error, tapi tidak ada baris yang dihapus karena tidak ada akses
+      toast({ title: 'Akses Ditolak', description: 'Anda tidak memiliki hak akses (RLS) untuk menghapus produk ini di Supabase.', variant: 'destructive' });
+      fetchAllProducts(); // restore state karena produk sebenarnya tidak terhapus
     } else {
       toast({ title: 'Berhasil', description: 'Listing produk berhasil dihapus/take-down.' });
       fetchProductsCount(); // Update the main active products count
@@ -882,16 +897,18 @@ const AdminPanel = () => {
       <div className="flex bg-slate-50 min-h-screen w-full">
         <AdminSidebar />
         <div className="flex flex-1 flex-col">
-          <header className="flex h-12 bg-white items-center gap-3 border-b px-4">
-            <SidebarTrigger />
-            <h1 className="text-sm font-semibold">
+          <header className="flex h-20 bg-white items-center gap-6 border-b px-8 shadow-sm">
+            <div className="scale-125 origin-left">
+              <SidebarTrigger />
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
               {currentPath === '/admin/kyc' ? 'Verifikasi Identitas' : 
                currentPath === '/admin/users' ? 'Manajemen Pengguna' :
                currentPath === '/admin/categories' ? 'Manajemen Kategori' :
                currentPath === '/admin/transactions' ? 'Transaksi & Saldo' :
                currentPath === '/admin/products' ? 'Manajemen Produk' :
                currentPath === '/admin/reports' ? 'Laporan Penipuan' :
-               currentPath === '/admin/settings' ? 'Pengaturan' : 'Admin Dashboard'}
+               currentPath === '/admin/settings' ? 'Pengaturan Sistem' : 'Admin Dashboard'}
             </h1>
           </header>
 

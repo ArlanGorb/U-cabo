@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { ShieldCheck, Package, FileCheck, Settings, ChevronRight, LogOut, ShoppingBag, Info, Mail, Phone } from 'lucide-react';
+import { ShieldCheck, Package, FileCheck, Settings, ChevronRight, LogOut, ShoppingBag, Info, Mail, Phone, Camera, Loader2, Shield, Users, BarChart3, AlertTriangle, CreditCard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import logo from '@/assets/u-cabo-logo.png';
 
 const menuItems = [
   { icon: ShoppingBag, label: 'Pesanan Saya', path: '/orders', desc: 'Riwayat belanja Anda' },
@@ -24,23 +26,43 @@ const menuItems = [
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [kycStatus, setKycStatus] = useState<string>('unverified');
   const [isSeller, setIsSeller] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const ADMIN_EMAIL = 'arlangorby81@gmail.com';
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        if (user.user_metadata?.role === 'Buyer') {
-          setIsSeller(false);
+        const { data: profile } = await supabase.from('profiles').select('role, avatar_url').eq('id', user.id).single();
+        if (profile) {
+          setIsSeller(profile.role !== 'Buyer');
+          setUserRole(profile.role);
+          setAvatarUrl(profile.avatar_url);
+
+          // Admin hanya untuk email spesifik
+          const emailIsAdmin = user.email?.toLowerCase() === ADMIN_EMAIL;
+          setIsAdmin(emailIsAdmin);
+
+          // Jika user bukan admin tapi punya role Admin, reset ke Seller
+          if (!emailIsAdmin && profile.role === 'Admin') {
+            await supabase.from('profiles').update({ role: 'Seller' }).eq('id', user.id);
+            setUserRole('Seller');
+          }
         }
         
         // Cek status KYC
-        const { data } = await supabase.from('kyc_requests').select('status').eq('user_id', user.id).single();
-        if (data) {
-           setKycStatus(data.status);
+        const { data: kycData } = await supabase.from('kyc_requests').select('status').eq('user_id', user.id).single();
+        if (kycData) {
+           setKycStatus(kycData.status);
         }
       } else {
         navigate('/login');
@@ -54,156 +76,328 @@ const Profile = () => {
     navigate('/login');
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('Pilih gambar terlebih dahulu.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      toast({ title: 'Berhasil', description: 'Foto profil Anda telah diperbarui.' });
+    } catch (error: any) {
+      toast({ title: 'Gagal Mengunggah', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen pb-20 bg-background flex flex-col w-full">
-      <div className="w-full bg-background min-h-screen relative">
-        {/* Header Desktop (Same as Index) */}
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur hidden md:block">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <h1 className="text-2xl font-black text-primary tracking-tight">U-Cabo</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/50 pb-20 flex flex-col w-full font-sans">
+      <div className="w-full min-h-screen relative">
+        {/* Header Desktop Premium - 3D Glass */}
+        <header className="sticky top-0 z-40 glass-3d hidden md:block">
+          <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+              <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+              <div className="flex flex-col">
+                <h1 className="text-3xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+                <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/" className="text-sm font-semibold hover:text-primary transition-colors">Home</a>
-              <a href="/chat" className="text-sm font-semibold hover:text-primary transition-colors">Chat</a>
-              {isSeller && <a href="/sell" className="text-sm font-semibold hover:text-primary transition-colors">Jual Barang</a>}
-              <a href="/profile" className="text-sm font-semibold text-primary transition-colors">Profil Saya</a>
+            <div className="flex items-center gap-10">
+              <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+              <a href="/chat" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Chat</a>
+              {userRole && (userRole.toLowerCase() === 'seller' || userRole.toLowerCase() === 'admin') && (
+                <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
+              )}
+              <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+              <a href="/profile" className="text-base font-bold text-primary transition-colors border-b-2 border-primary pb-1">Profil Saya</a>
             </div>
           </div>
         </header>
 
-        {/* Profil Header dengan Gradient Keren */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 pb-8 pt-12 px-8 md:px-12 text-white shadow-md sm:rounded-b-[2.5rem]">
-          <div className="absolute top-6 left-8 md:hidden flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 transition-colors rounded-full" onClick={() => navigate('/')}>
-              <ChevronRight className="h-6 w-6 rotate-180" />
-            </Button>
-            <h1 className="text-xl font-extrabold tracking-tight">Profilku</h1>
-          </div>
-        <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
-        <div className="absolute -left-10 -bottom-10 h-48 w-48 rounded-full bg-black/10 blur-2xl"></div>
-        
-        <div className="relative z-10 mt-14 flex items-center gap-6 md:gap-8">
-          <div className="relative h-24 w-24 md:h-32 md:w-32 overflow-hidden rounded-full border-4 border-white/20 bg-white/10 shadow-2xl backdrop-blur-md">
-            <img src={`https://ui-avatars.com/api/?name=${user?.user_metadata?.full_name || 'User'}&background=random`} alt="avatar" className="h-full w-full object-cover" />
-          </div>
-          <div className="flex flex-col text-white">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl md:text-3xl font-extrabold line-clamp-1 drop-shadow-md">{user?.user_metadata?.full_name || 'Nama Pengguna'}</h2>
-              {kycStatus === 'approved' && <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 shrink-0 text-green-300 drop-shadow-sm" />}
-            </div>
-            <p className="text-base md:text-lg text-white/90 font-medium mt-1">{user?.email || 'Memuat...'}</p>
-            {user?.user_metadata?.phone && (
-              <p className="text-sm text-white/80 mt-1">No. HP: {user.user_metadata.phone}</p>
-            )}
-            <Badge variant={kycStatus === 'approved' ? 'secondary' : 'destructive'} className="mt-3 md:mt-4 w-fit px-4 py-1.5 text-sm bg-white/20 hover:bg-white/30 backdrop-blur-md border-0 text-white shadow-sm font-bold">
-               {kycStatus === 'approved' ? `${isSeller ? 'Seller' : 'Buyer'} Terverifikasi` : 'Belum Terverifikasi'}
-            </Badge>
-          </div>
-        </div>
-      </div>
+        <main className="max-w-6xl mx-auto px-6 py-10 md:py-16 perspective-1500">
+          {/* Profile Hero Card - 3D */}
+          <section className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/80 rounded-[3rem] gradient-border shadow-3d-deep p-8 md:p-12 mb-12 inner-light animate-bounce-in transition-all duration-500 hover:shadow-3d-hover">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+            
+            <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-10 text-center md:text-left">
+              {/* Avatar Section with Upload */}
+              <div className="relative group">
+                <div className="relative h-32 w-32 md:h-44 md:w-44 overflow-hidden rounded-[2.5rem] border-8 border-white/80 bg-slate-100 shadow-3d-deep transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-3d-hover animate-pulse-glow">
+                  <img 
+                    src={avatarUrl || `https://ui-avatars.com/api/?name=${user?.user_metadata?.full_name || 'User'}&background=random`} 
+                    alt="avatar" 
+                    className="h-full w-full object-cover" 
+                  />
+                  
+                  <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer backdrop-blur-sm">
+                    {uploading ? (
+                      <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-10 w-10 text-white mb-2" />
+                        <span className="text-[10px] text-white font-black uppercase tracking-widest">Ganti Foto</span>
+                      </>
+                    )}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} />
+                  </label>
+                </div>
+                {!uploading && (
+                  <div className="absolute -bottom-2 -right-2 h-12 w-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 border-4 border-white md:h-14 md:w-14">
+                    <Camera className="h-5 w-5 md:h-6 w-6" />
+                  </div>
+                )}
+              </div>
 
-      <div className="px-6 md:px-12 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <div className="mb-4 text-sm font-extrabold text-muted-foreground uppercase tracking-widest px-1">Aktivitas Anda</div>
-            <div className="space-y-4">
-                {menuItems.filter(item => {
-                  // Jika bukan seller, hilangkan HANYA opsi '/seller' (Produk Saya). KYC tetap muncul.
-                  if (!isSeller && item.path === '/seller') return false;
-                  return true;
-                }).map((item) => (
-                <Card
-                  key={item.path}
-                  className="group flex cursor-pointer items-center gap-5 overflow-hidden border-transparent bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-black/5 hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98]"
-                  onClick={() => navigate(item.path)}
-                >
-                  <div className="flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-2xl bg-primary/5 text-primary transition-colors group-hover:bg-primary/10">
-                    <item.icon className="h-7 w-7 md:h-8 md:w-8" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-lg font-bold text-foreground/90">{item.label}</p>
-                    <p className="text-sm font-medium text-muted-foreground mt-0.5">{item.desc}</p>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:bg-primary group-hover:text-white">
-                    <ChevronRight className="h-5 w-5" />
-                  </div>
-                </Card>
-              ))}
+              {/* User Info */}
+              <div className="flex-1 flex flex-col justify-center pt-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-3">
+                  <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-none">
+                    {user?.user_metadata?.full_name || 'Nama Pengguna'}
+                  </h2>
+                  {kycStatus === 'approved' && (
+                    <div className="flex items-center gap-1.5 bg-green-50 text-green-600 px-3 py-1.5 rounded-full border border-green-100 shadow-sm">
+                      <ShieldCheck className="h-5 w-5" />
+                      <span className="text-xs font-black uppercase tracking-wider">Verified</span>
+                    </div>
+                  )}
+                  {isAdmin && (
+                    <div className="flex items-center gap-1.5 bg-slate-900 text-yellow-400 px-3 py-1.5 rounded-full shadow-sm">
+                      <Shield className="h-4 w-4" />
+                      <span className="text-xs font-black uppercase tracking-wider">Admin</span>
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-lg md:text-xl text-slate-500 font-bold mb-6">{user?.email}</p>
+                
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <Badge className="px-5 py-2 text-sm bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl border-0">
+                    {kycStatus === 'approved' ? (isSeller ? 'OFFICIAL SELLER' : 'BUYER') : 'UNVERIFIED'}
+                  </Badge>
+                  {user?.user_metadata?.phone && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl border border-slate-100 text-sm font-bold">
+                      <Phone className="h-4 w-4" /> {user.user_metadata.phone}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <Button onClick={handleLogout} variant="outline" className="hidden md:flex h-14 px-8 rounded-2xl border-2 border-red-100 text-red-500 font-black hover:bg-red-50 hover:text-red-600 transition-all gap-3 shadow-3d btn-3d active:scale-95">
+                <LogOut className="h-5 w-5" /> Keluar
+              </Button>
             </div>
-          </div>
+          </section>
 
-          <div>
-            <div className="mb-4 text-sm font-extrabold text-muted-foreground uppercase tracking-widest px-1">Lainnya</div>
-            <div className="space-y-4">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Card className="group flex cursor-pointer items-center gap-5 overflow-hidden border-transparent bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-black/5 hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98]">
-                    <div className="flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 transition-colors group-hover:bg-orange-500/20">
-                      <Info className="h-7 w-7 md:h-8 md:w-8" />
+          {/* Activity & Menu Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            {/* Main Menu Cards */}
+            <div className="lg:col-span-2 space-y-6">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-[0.2em] px-2 mb-4">Layanan Anda</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 stagger-bounce">
+                {menuItems.filter(item => isSeller || item.path !== '/seller').map((item) => (
+                  <Card
+                    key={item.path}
+                    className="card-3d group relative cursor-pointer overflow-hidden p-8 rounded-[2.5rem] inner-light active:scale-95"
+                    onClick={() => navigate(item.path)}
+                  >
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/5 text-primary mb-6 transition-all duration-500 group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
+                      <item.icon className="h-8 w-8" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-lg font-bold text-foreground/90">Tentang U-Cabo</p>
-                      <p className="text-sm font-medium text-muted-foreground mt-0.5">Pusat Bantuan & Kontak</p>
+                    <div className="space-y-1">
+                      <p className="text-xl font-black text-slate-900">{item.label}</p>
+                      <p className="text-sm font-bold text-slate-400">{item.desc}</p>
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:bg-primary group-hover:text-white">
+                    <div className="absolute bottom-8 right-8 h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-300 flex transition-all group-hover:bg-primary group-hover:text-white group-hover:rotate-45 shadow-3d">
+                      <ChevronRight className="h-6 w-6" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* ADMIN PANEL - Only visible for Admin role */}
+            {isAdmin && (
+              <div className="lg:col-span-3 space-y-6">
+                <div className="flex items-center gap-3 px-2 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-[0.2em]">Panel Admin</h3>
+                    <p className="text-xs text-slate-400 font-bold">Akses khusus administrator</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 stagger-bounce">
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-slate-900/5 bg-gradient-to-br from-slate-50 to-white"
+                    onClick={() => navigate('/admin')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-yellow-400 mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <BarChart3 className="h-7 w-7" />
+                    </div>
+                    <p className="text-lg font-black text-slate-900">Dashboard</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Statistik & aktivitas</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-slate-900 group-hover:text-yellow-400 group-hover:rotate-45">
                       <ChevronRight className="h-5 w-5" />
                     </div>
                   </Card>
-                </DialogTrigger>
-                <DialogContent className="w-[90%] max-w-md rounded-2xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-center text-xl font-bold text-primary">Tentang U-Cabo</DialogTitle>
-                    <DialogDescription className="text-center">
-                      Marketplace eksklusif untuk Mahasiswa Universitas Klabat (UNKLAB).
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="mt-2 space-y-4">
-              <div className="rounded-xl bg-primary/5 p-4 text-sm leading-relaxed text-foreground">
-                <p>
-                  <strong>U-Cabo</strong> dibangun untuk mempermudah ekosistem jual beli kebutuhan kuliah seperti modul, alat praktikum, jas almamater preloved, hingga keperluan kosan yang aman karena hanya untuk kalangan mahasiswa kampus.
-                </p>
-              </div>
-              <div>
-                <h4 className="mb-2 text-sm font-bold text-muted-foreground">Kontak Hubungi Kami / Bantuan:</h4>
-                <div className="space-y-2">
-                  <a href="mailto:admin@ucabomarket.co.id" className="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-muted/50">
-                    <Mail className="h-5 w-5 text-red-500" />
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground">Email Bantuan & Bisnis</p>
-                      <p className="text-sm font-bold">admin@ucabomarket.co.id</p>
+
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-slate-900/5 bg-gradient-to-br from-slate-50 to-white"
+                    onClick={() => navigate('/admin/kyc')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <Users className="h-7 w-7" />
                     </div>
-                  </a>
-                  <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-muted/50">
-                    <Phone className="h-5 w-5 text-green-500" />
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground">WhatsApp Admin CS</p>
-                      <p className="text-sm font-bold">+62 812-3456-7890</p>
+                    <p className="text-lg font-black text-slate-900">Verifikasi KYC</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Kelola identitas user</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-emerald-600 group-hover:text-white group-hover:rotate-45">
+                      <ChevronRight className="h-5 w-5" />
                     </div>
-                  </a>
+                  </Card>
+
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-slate-900/5 bg-gradient-to-br from-slate-50 to-white"
+                    onClick={() => navigate('/admin/products')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <Package className="h-7 w-7" />
+                    </div>
+                    <p className="text-lg font-black text-slate-900">Moderasi Produk</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Take-down listing</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-45">
+                      <ChevronRight className="h-5 w-5" />
+                    </div>
+                  </Card>
+
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-slate-900/5 bg-gradient-to-br from-slate-50 to-white"
+                    onClick={() => navigate('/admin/transactions')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-white mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <CreditCard className="h-7 w-7" />
+                    </div>
+                    <p className="text-lg font-black text-slate-900">Keuangan</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Transaksi & penarikan</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-amber-500 group-hover:text-white group-hover:rotate-45">
+                      <ChevronRight className="h-5 w-5" />
+                    </div>
+                  </Card>
+
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-red-100/50 bg-gradient-to-br from-red-50/30 to-white"
+                    onClick={() => navigate('/admin/reports')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600 text-white mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <AlertTriangle className="h-7 w-7" />
+                    </div>
+                    <p className="text-lg font-black text-slate-900">Laporan</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Fraud & penipuan</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-red-600 group-hover:text-white group-hover:rotate-45">
+                      <ChevronRight className="h-5 w-5" />
+                    </div>
+                  </Card>
+
+                  <Card
+                    className="card-3d group relative cursor-pointer overflow-hidden p-6 rounded-[2rem] inner-light active:scale-95 border-2 border-slate-900/5 bg-gradient-to-br from-slate-50 to-white"
+                    onClick={() => navigate('/admin/settings')}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-600 text-white mb-5 transition-all duration-500 group-hover:scale-110 group-hover:shadow-lg">
+                      <Settings className="h-7 w-7" />
+                    </div>
+                    <p className="text-lg font-black text-slate-900">Pengaturan</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">Konfigurasi sistem</p>
+                    <div className="absolute bottom-6 right-6 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-300 flex transition-all group-hover:bg-violet-600 group-hover:text-white group-hover:rotate-45">
+                      <ChevronRight className="h-5 w-5" />
+                    </div>
+                  </Card>
                 </div>
               </div>
-              <p className="text-center text-xs text-muted-foreground mt-4">
-                © 2026 U-Cabo UNKLAB. All rights reserved.
-              </p>
-            </div>
-          </DialogContent>
-        </Dialog>
+            )}
 
-              <Button onClick={handleLogout} variant="destructive" className="mt-8 w-full gap-2 rounded-xl py-7 text-lg font-bold shadow-sm transition-transform hover:-translate-y-0.5 active:scale-95">
-                <LogOut className="h-6 w-6" />
-                Keluar
+            {/* Sidebar Cards */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-[0.2em] px-2 mb-4">Informasi</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Card className="card-3d group cursor-pointer overflow-hidden p-8 rounded-[2.5rem] inner-light">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                      <Info className="h-8 w-8" />
+                    </div>
+                    <p className="text-xl font-black text-slate-900 mb-1">Pusat Bantuan</p>
+                    <p className="text-sm font-bold text-slate-400 leading-relaxed">Butuh bantuan transaksi atau pertanyaan seputar U-Cabo?</p>
+                  </Card>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl rounded-[3rem] p-0 overflow-hidden border-0 shadow-2xl">
+                  <div className="bg-primary p-12 text-white relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                    <h2 className="text-4xl font-black tracking-tight mb-2">Hubungi Kami</h2>
+                    <p className="text-primary-foreground/80 font-bold">Tim kami siap membantu Anda kapan saja.</p>
+                  </div>
+                  <div className="p-12 space-y-8 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <a href="mailto:admin@ucabomarket.co.id" className="flex flex-col gap-4 p-6 rounded-3xl border-2 border-slate-50 hover:border-primary/20 hover:bg-slate-50 transition-all">
+                        <div className="h-12 w-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center">
+                          <Mail className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Kirim Email</p>
+                          <p className="text-lg font-black text-slate-800">admin@ucabo.com</p>
+                        </div>
+                      </a>
+                      <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="flex flex-col gap-4 p-6 rounded-3xl border-2 border-slate-50 hover:border-primary/20 hover:bg-slate-50 transition-all">
+                        <div className="h-12 w-12 bg-green-50 text-green-500 rounded-xl flex items-center justify-center">
+                          <Phone className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">WhatsApp CS</p>
+                          <p className="text-lg font-black text-slate-800">+62 812-3456</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Mobile Logout Button */}
+              <Button onClick={handleLogout} variant="destructive" className="md:hidden w-full h-16 rounded-[2rem] text-lg font-black shadow-3d-deep btn-3d">
+                <LogOut className="h-6 w-6 mr-3" /> Keluar
               </Button>
             </div>
           </div>
+        </main>
+
+        <div className="md:hidden">
+          <BottomNav />
         </div>
       </div>
-
-      <div className="md:hidden">
-        <BottomNav />
-      </div>
     </div>
-  </div>
   );
 };
 

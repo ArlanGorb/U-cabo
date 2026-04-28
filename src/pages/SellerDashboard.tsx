@@ -11,6 +11,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import logo from '@/assets/u-cabo-logo.png';
 
 const SellerDashboard = () => {
   const navigate = useNavigate();
@@ -95,27 +96,47 @@ const SellerDashboard = () => {
 
     setAvailableBalance(grossEarnings - totalWithdrawn);
 
-    // Fetch Reviews
-    const { data: reviewsData } = await supabase
+    // Fetch Reviews - Cara paling aman: Ambil ulasan dulu, baru cari nama pembelinya
+    const { data: rawReviews, error: reviewsError } = await supabase
       .from('reviews')
-      .select('*, profiles(name)')
+      .select('*')
       .eq('seller_id', user.id)
       .order('created_at', { ascending: false });
     
-    if (reviewsData) {
-      setReviews(reviewsData.map((r: any) => ({
+    if (reviewsError) {
+      console.error("Error fetching reviews:", reviewsError);
+    } else if (rawReviews) {
+      console.log("Raw reviews found:", rawReviews.length);
+      
+      // Ambil nama-nama pembeli secara terpisah
+      const buyerIds = [...new Set(rawReviews.map(r => r.buyer_id))];
+      const { data: buyerProfiles } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', buyerIds);
+      
+      const buyerMap = (buyerProfiles || []).reduce((acc: any, p) => {
+        acc[p.id] = p.name;
+        return acc;
+      }, {});
+
+      setReviews(rawReviews.map((r: any) => ({
         ...r,
-        buyer_name: r.profiles?.name || 'Pembeli'
+        buyer_name: buyerMap[r.buyer_id] || 'Pembeli'
       })));
       
-      // Jika rating di profile masih 0 tapi sudah ada ulasan, hitung ulang untuk tampilan
-      if (reviewsData.length > 0) {
-        const totalRating = reviewsData.reduce((acc: number, curr: any) => 
-          acc + ((Number(curr.product_rating) + Number(curr.service_rating)) / 2), 0
-        );
-        const calculatedAvg = totalRating / reviewsData.length;
+      if (rawReviews.length > 0) {
+        let totalSum = 0;
+        rawReviews.forEach((r: any) => {
+          const pRating = parseFloat(r.product_rating) || 0;
+          const sRating = parseFloat(r.service_rating) || 0;
+          totalSum += (pRating + sRating) / 2;
+        });
+        
+        const calculatedAvg = totalSum / rawReviews.length;
+        console.log("Calculated Avg Rating:", calculatedAvg);
         setSellerRating(calculatedAvg);
-        setTotalReviews(reviewsData.length);
+        setTotalReviews(rawReviews.length);
       }
     }
 
@@ -123,15 +144,19 @@ const SellerDashboard = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const confirm = window.confirm("Yakin ingin menghapus produk ini?");
-    if (!confirm) return;
+    if (!window.confirm("Yakin ingin menghapus produk ini? Produk yang sudah pernah dipesan mungkin tidak bisa dihapus.")) return;
 
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (!error) {
-      toast({ title: 'Berhasil', description: 'Produk telah dihapus.' });
+      toast({ title: 'Berhasil', description: 'Produk telah dihapus dari database.' });
       setMyProducts((prev) => prev.filter((p) => p.id !== id));
     } else {
-      toast({ title: 'Gagal', description: 'Gagal menghapus produk.', variant: 'destructive' });
+      console.error("Delete Error:", error);
+      toast({ 
+        title: 'Gagal Menghapus', 
+        description: `Error: ${error.message}. (Biasanya karena barang sudah pernah dipesan atau masalah izin RLS)`, 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -175,16 +200,21 @@ const SellerDashboard = () => {
       <div className="w-full bg-background min-h-screen relative px-4 md:px-8 mt-0 pt-0">
         
         {/* Header Desktop */}
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur hidden md:block mb-8">
-          <div className="flex items-center justify-between px-8 py-4">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <h1 className="text-2xl font-black text-primary tracking-tight">U-Cabo</h1>
+        <header className="sticky top-0 z-40 glass-3d hidden md:block mb-8">
+          <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
+              <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+              <div className="flex flex-col">
+                <h1 className="text-3xl lg:text-4xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+                <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/" className="text-sm font-semibold hover:text-primary transition-colors">Home</a>
-              <a href="/chat" className="text-sm font-semibold hover:text-primary transition-colors">Chat</a>
-              <a href="/sell" className="text-sm font-semibold text-primary transition-colors">Jual Barang</a>
-              <a href="/profile" className="text-sm font-semibold hover:text-primary transition-colors">Profil Saya</a>
+            <div className="flex items-center gap-10">
+              <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+              <a href="/chat" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Chat</a>
+              <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
+              <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+              <a href="/profile" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Profil Saya</a>
             </div>
           </div>
         </header>
@@ -197,7 +227,7 @@ const SellerDashboard = () => {
           </div>
           <div className="flex items-center gap-1 bg-primary/5 px-2.5 py-1 rounded-full border border-primary/10">
              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-             <span className="text-xs font-bold text-primary">{sellerRating > 0 ? sellerRating.toFixed(1) : '0.0'}</span>
+             <span className="text-xs font-bold text-primary">{sellerRating.toFixed(1)}</span>
           </div>
         </header>
 
@@ -206,12 +236,12 @@ const SellerDashboard = () => {
           <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
              <div className="flex items-center gap-1.5">
                 <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                <span className="text-xl font-black text-slate-800">{sellerRating > 0 ? sellerRating.toFixed(1) : '0.0'}</span>
+                <span className="text-xl font-black text-slate-800">{sellerRating.toFixed(1)}</span>
              </div>
              <div className="w-px h-8 bg-slate-200 mx-1"></div>
-             <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Ulasan</span>
-                <span className="text-sm font-bold text-slate-700 text-center">{totalReviews}</span>
+             <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ulasan</span>
+                <span className="text-sm font-bold text-slate-700">{totalReviews}</span>
              </div>
           </div>
         </div>
@@ -244,7 +274,7 @@ const SellerDashboard = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
                   {myProducts.map((product) => (
-                    <Card key={product.id} className="flex flex-col gap-3 p-4 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                    <Card key={product.id} className="card-3d flex flex-col gap-3 p-4 overflow-hidden inner-light">
                       <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted relative">
                         <img 
                           src={product.image_url || 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80'} 

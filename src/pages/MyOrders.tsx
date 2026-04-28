@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Star, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Star, ShieldAlert, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,25 +49,27 @@ const MyOrders = () => {
         return;
       }
 
-      // Fetch orders and their corresponding reviews in one go (if possible with Supabase join)
-      // Or fetch reviews separately and map them.
+      // Fetch orders
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*, reviews(id)')
+        .select('*')
         .eq('buyer_id', user.id)
         .order('date', { ascending: false });
 
       if (ordersError) {
-        if (ordersError.code === '42P01') {
-          toast({ title: 'Perhatian', description: 'Tabel pesanan belum dibuat di database Anda.', variant: 'destructive'});
-        } else {
-          console.error(ordersError);
-        }
-      } else {
-        // Mark orders as rated if they have an entry in the reviews table
-        const formattedOrders = (ordersData || []).map((order: any) => ({
+        console.error(ordersError);
+      } else if (ordersData) {
+        // Fetch all reviews by this buyer to mark orders as rated
+        const { data: reviewsData } = await supabase
+          .from('reviews')
+          .select('order_id')
+          .eq('buyer_id', user.id);
+        
+        const ratedOrderIds = new Set((reviewsData || []).map(r => r.order_id));
+
+        const formattedOrders = ordersData.map((order: any) => ({
           ...order,
-          rated: order.reviews && order.reviews.length > 0
+          rated: ratedOrderIds.has(order.id)
         }));
         setOrders(formattedOrders);
       }
@@ -92,10 +94,8 @@ const MyOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Anda harus login.');
 
-      // Safety check: Pastikan seller_id benar
       let finalSellerId = selectedOrder.seller_id;
       
-      // Jika seller_id di order bermasalah (null atau Anonymous), cari dari tabel produk
       if (!finalSellerId || finalSellerId === 'Anonymous') {
         const { data: productData } = await supabase
           .from('products')
@@ -112,26 +112,25 @@ const MyOrders = () => {
         throw new Error('ID Penjual tidak ditemukan. Tidak dapat memberikan penilaian.');
       }
 
-      // Insert review
-      const { error: reviewError } = await supabase.from('reviews').insert({
+      const { error: reviewError } = await supabase.from('reviews').upsert({
         order_id: selectedOrder.id,
         buyer_id: user.id,
         seller_id: finalSellerId,
         product_rating: productRating,
         service_rating: serviceRating,
         comment: comment
-      });
+      }, { onConflict: 'order_id' });
 
       if (reviewError) throw reviewError;
 
-      // Update Seller Aggregate Rating
+      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, rated: true } : o));
+
       const { data: reviews } = await supabase
         .from('reviews')
         .select('product_rating, service_rating')
         .eq('seller_id', finalSellerId);
       
       if (reviews && reviews.length > 0) {
-        // Hitung rata-rata secara manual agar lebih akurat
         const totalSum = reviews.reduce((sum, r) => {
           const avg = (Number(r.product_rating) + Number(r.service_rating)) / 2;
           return sum + avg;
@@ -150,9 +149,6 @@ const MyOrders = () => {
       toast({ title: 'Berhasil', description: 'Terima kasih atas penilaian Anda!' });
       setIsRatingModalOpen(false);
       
-      // Update local state to mark as rated
-      setOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, rated: true } : o));
-      
     } catch (error: any) {
       console.error(error);
       toast({ 
@@ -162,6 +158,45 @@ const MyOrders = () => {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus riwayat pesanan ini? Tindakan ini tidak dapat dibatalkan.')) return;
+    
+    try {
+      console.log("Attempting to delete order ID:", orderId);
+      
+      const { data, error, status } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId)
+        .select();
+
+      console.log("Supabase Delete Response:", { data, error, status });
+
+      if (error) {
+        console.error("Supabase Error:", error);
+        throw error;
+      }
+      
+      if (status === 204 || (data && data.length > 0)) {
+        console.log("Delete successful in database.");
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+        toast({ title: 'Berhasil', description: 'Riwayat pesanan telah dihapus.' });
+      } else {
+        console.warn("Delete call finished, but no rows were affected. Check RLS policies.");
+        toast({ 
+          title: 'Peringatan', 
+          description: 'Berhasil di layar, tapi database menolak penghapusan. Periksa kebijakan RLS Supabase Anda.',
+          variant: 'destructive'
+        });
+        // Tetap hapus dari state agar user merasa ada perubahan, tapi ingatkan mereka
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      }
+    } catch (error: any) {
+      console.error("Delete Error:", error);
+      toast({ title: 'Gagal Menghapus', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -216,20 +251,24 @@ const MyOrders = () => {
   return (
     <div className="min-h-screen bg-slate-50 pb-24 flex flex-col w-full">
       <div className="w-full bg-slate-50 min-h-screen relative">
-        {/* Header Desktop */}
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur hidden md:block">
-          <div className="flex items-center justify-between px-8 py-4">
+        {/* Header Desktop Premium - 3D Glass */}
+        <header className="sticky top-0 z-40 glass-3d hidden md:block">
+          <div className="flex items-center justify-between px-12 py-5 max-w-7xl mx-auto">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-              <img src={logo} alt="U-Cabo" className="h-10 w-auto object-contain" />
-              <h1 className="text-2xl font-black text-primary tracking-tighter">U-Cabo</h1>
+              <img src={logo} alt="U-Cabo" className="h-10 md:h-12 w-auto object-contain" />
+              <div className="flex flex-col">
+                <h1 className="text-3xl font-black text-primary tracking-tighter leading-none">U-Cabo</h1>
+                <p className="text-[8px] font-black text-slate-400 tracking-[0.2em] uppercase mt-1">Praktis • Aman • Ekonomis</p>
+              </div>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/" className="text-sm font-semibold hover:text-primary transition-colors">Home</a>
-              <a href="/chat" className="text-sm font-semibold hover:text-primary transition-colors">Chat</a>
-              {userRole === 'Seller' && (
-                <a href="/sell" className="text-sm font-semibold hover:text-primary transition-colors">Jual Barang</a>
+            <div className="flex items-center gap-10">
+              <a href="/" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Home</a>
+              <a href="/chat" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Chat</a>
+              {userRole && (userRole.toLowerCase() === 'seller' || userRole.toLowerCase() === 'admin') && (
+                <a href="/sell" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Jual Barang</a>
               )}
-              <a href="/profile" className="text-sm font-semibold hover:text-primary transition-colors">Profil Saya</a>
+              <a href="/about" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Visi & Misi</a>
+              <a href="/profile" className="text-base font-bold text-slate-600 hover:text-primary transition-colors">Profil Saya</a>
             </div>
           </div>
         </header>
@@ -266,29 +305,31 @@ const MyOrders = () => {
                {orders.map((order) => (
                   <Card key={order.id} className="overflow-hidden border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all hover:shadow-md bg-white">
                      <div className="flex items-center justify-between border-b border-slate-50 bg-slate-50/50 px-4 py-2">
-                       <div className="flex items-center gap-2">
-                          <ShoppingBag className="h-4 w-4 text-slate-400" />
-                          <span className="text-xs font-semibold text-slate-500">Belanja</span>
-                          <span className="text-[10px] text-slate-400 font-medium ml-1">{order.date}</span>
-                       </div>
-                       <Badge 
-                         variant={order.status === 'success' || order.status === 'completed' || order.status === 'shipped' || order.status === 'processing' ? 'default' : (order.status === 'pending' ? 'secondary' : 'destructive')} 
-                         className={`h-6 text-[10px] font-bold tracking-wide rounded-md px-2.5 ${
-                           (order.status === 'success' || order.status === 'completed') ? 'bg-green-500/10 text-green-700 hover:bg-green-500/20' : 
-                           (order.status === 'shipped' || order.status === 'processing') ? 'bg-blue-500/10 text-blue-700 hover:bg-blue-500/20' :
-                           order.status === 'disputed' ? 'bg-orange-500/10 text-orange-700 hover:bg-orange-500/20' :
-                           order.status === 'refunded' ? 'bg-red-500/10 text-red-700 hover:bg-red-500/20' :
-                           order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20' : 
-                           'bg-red-500/10 text-red-700 hover:bg-red-500/20'
-                         }`}
-                       >
-                         {order.status === 'completed' ? 'Selesai' : 
-                          order.status === 'shipped' ? 'Dikirim' : 
-                          order.status === 'disputed' ? 'Komplain Diproses' :
-                          order.status === 'refunded' ? 'Dana Dikembalikan' :
-                          (order.status === 'processing' || order.status === 'success') ? 'Dikemas' :
-                          (order.status === 'pending' ? 'Menunggu' : 'Dibatalkan')}
-                       </Badge>
+                        <div className="flex items-center gap-2">
+                           <ShoppingBag className="h-4 w-4 text-slate-400" />
+                           <span className="text-xs font-semibold text-slate-500">Belanja</span>
+                           <span className="text-[10px] text-slate-400 font-medium ml-1">{order.date}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={order.status === 'success' || order.status === 'completed' || order.status === 'shipped' || order.status === 'processing' ? 'default' : (order.status === 'pending' ? 'secondary' : 'destructive')} 
+                            className={`h-6 text-[10px] font-bold tracking-wide rounded-md px-2.5 ${(order.status === 'success' || order.status === 'completed') ? 'bg-green-500/10 text-green-700 hover:bg-green-500/20' : (order.status === 'shipped' || order.status === 'processing') ? 'bg-blue-500/10 text-blue-700 hover:bg-blue-500/20' : order.status === 'disputed' ? 'bg-orange-500/10 text-orange-700 hover:bg-orange-500/20' : order.status === 'refunded' ? 'bg-red-500/10 text-red-700 hover:bg-red-500/20' : order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20' : 'bg-red-500/10 text-red-700 hover:bg-red-500/20'}`}
+                          >
+                            {order.status === 'completed' ? 'Selesai' : 
+                             order.status === 'shipped' ? 'Dikirim' : 
+                             order.status === 'disputed' ? 'Komplain Diproses' :
+                             order.status === 'refunded' ? 'Dana Dikembalikan' :
+                             (order.status === 'processing' || order.status === 'success') ? 'Dikemas' :
+                             (order.status === 'pending' ? 'Menunggu' : 'Dibatalkan')}
+                          </Badge>
+                          <button 
+                            onClick={() => handleDeleteOrder(order.id)}
+                            className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            title="Hapus riwayat"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                      </div>
                      
                      <div className="p-4 flex gap-4 md:gap-6">
@@ -345,7 +386,6 @@ const MyOrders = () => {
                                       const updatedOrder = { ...order, status: 'completed' };
                                       setOrders(orders.map(o => o.id === order.id ? updatedOrder : o));
                                       
-                                      // Otomatis buka modal rating
                                       setSelectedOrder(updatedOrder);
                                       setProductRating(5);
                                       setServiceRating(5);
